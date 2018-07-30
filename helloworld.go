@@ -72,12 +72,12 @@ func requestHandler() {
 
 func main() {
     var err error
-    if db, err = database.CreateConn(); err != nil {
+    if db, err = database.CreateConn(db); err != nil {
         panic(err)
     }
     defer db.Close()
 
-    if err = database.CreateTable(); err != nil {
+    if err = database.CreateTable(db); err != nil {
         panic(err)
     }
     requestHandler()
