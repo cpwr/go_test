@@ -2,15 +2,17 @@ package main
 
 import (
     "log"
+    "database/sql"
     "encoding/json"
     "net/http"
     "github.com/gorilla/mux"
+    "github.com/cpwr/go_test/database"
 )
 
 type Person struct {
     ID int `json:"id,omitempty"`
-    Firstname string `json:"firstname,omitempty"`
-    Lastname string `json:"lastname,omitempty"`
+    Name string `json:"firstname,omitempty"`
+    Created string `json:"lastname,omitempty"`
 }
 
 type Task struct {
@@ -19,9 +21,29 @@ type Task struct {
 }
 
 var tasks []Task
+var persons []Person
+var db *sql.DB
+
+func Query() error {
+    name := "Aaron"
+    rows, err := db.Query("SELECT id, name, created FROM employees where name=$1", name)
+    if err != nil {
+        return err
+    }
+
+    for rows.Next() {
+        var p Person
+        if err := rows.Scan(&p.ID, &p.Name, &p.Created); err != nil {
+            return err
+        }
+        persons = append(persons, p)
+    }
+    return rows.Err()
+}
 
 func GetInfo(w http.ResponseWriter, req *http.Request) {
-    json.NewEncoder(w).Encode(tasks)
+    Query()
+    json.NewEncoder(w).Encode(persons)
 }
 
 func UpdateInfo(w http.ResponseWriter, req *http.Request) {
@@ -32,12 +54,31 @@ func DeleteInfo(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func main() {
-    router := mux.NewRouter()
+func HomePage(w http.ResponseWriter, req *http.Request) {
     tasks = append(tasks, Task{ID: 1, Taskname: "Estimation"})
     tasks = append(tasks, Task{ID: 2, Taskname: "Estimate estimation"})
-    router.HandleFunc("/users/{username}", GetInfo).Methods("GET")
-    router.HandleFunc("/users/{username}", UpdateInfo).Methods("PUT")
-    router.HandleFunc("/users/{username}", DeleteInfo).Methods("DELETE")
-    log.Fatal(http.ListenAndServe(":8000", router))
+    json.NewEncoder(w).Encode(tasks)
+}
+
+
+func requestHandler() {
+    router := mux.NewRouter()
+    router.HandleFunc("/", HomePage)
+    router.HandleFunc("/users/{name}", GetInfo).Methods("GET")
+    router.HandleFunc("/users/{name}", UpdateInfo).Methods("PUT")
+    router.HandleFunc("/users/{name}", DeleteInfo).Methods("DELETE")
+    log.Fatal(http.ListenAndServe(":8001", router))
+}
+
+func main() {
+    var err error
+    if db, err = database.CreateConn(); err != nil {
+        panic(err)
+    }
+    defer db.Close()
+
+    if err = database.CreateTable(); err != nil {
+        panic(err)
+    }
+    requestHandler()
 }
